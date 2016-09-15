@@ -21,6 +21,11 @@ or in a range:
 progress_bar.progress(0, 5, task, prefix="sleep range")
 ```
 
+The output looks roughly like this:
+```
+sleep list: |█████████████████▍  |  87.01% (T   2m 11s ETA   2m 52s)
+```
+
 If no estimate of the progress towards completion can be made use:
 ```python
 def repeat(num):
