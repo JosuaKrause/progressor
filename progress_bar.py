@@ -11,24 +11,6 @@ import numpy as np
 from sklearn import linear_model
 from sklearn.preprocessing import PolynomialFeatures
 
-BLOCKS = [
-    " ",
-    "▏",
-    "▎",
-    "▍",
-    "▌",
-    "▋",
-    "▊",
-    "▉",
-    "█",
-]
-
-INDEF = [
-    "-",
-    "\\",
-    "|",
-    "/",
-]
 
 times = [
     (1000, "s"),
@@ -48,7 +30,8 @@ def convert_time(value):
             if prev_u:
                 cur_h = math.floor(cur_v)
                 cur_l = math.floor((cur_v - cur_h) * conv / prev_c)
-                cur = "{0:3.0f}{1} {2:2.0f}{3}".format(cur_h, unit, cur_l, prev_u)
+                cur = "{0:3.0f}{1} {2:2.0f}{3}".format(cur_h, unit,
+                                                       cur_l, prev_u)
             else:
                 cur = "{0:7.3f}{1}".format(cur_v, unit)
         else:
@@ -57,8 +40,10 @@ def convert_time(value):
         prev_c = conv
     return cur
 
+
 def get_time():
     return time.time()
+
 
 max_time_list = 1000
 def add_time_point(time_points, count, p):
@@ -68,6 +53,7 @@ def add_time_point(time_points, count, p):
         pos = random.randrange(count)
         if pos < len(time_points):
             time_points[pos] = p
+
 
 def compute_eta(time_points, before):
     if len(time_points) < 3:
@@ -79,7 +65,20 @@ def compute_eta(time_points, before):
     clf.fit(x, y)
     return max(0, clf.predict(poly.transform(np.array([[1.0]])))[0] - before)
 
-def method_blocks(out, prefix, ix, length, width, elapsed_ms, time_points, count):
+
+BLOCKS = [
+    " ",
+    "▏",
+    "▎",
+    "▍",
+    "▌",
+    "▋",
+    "▊",
+    "▉",
+    "█",
+]
+def method_blocks(out, prefix, ix, length, width,
+                  elapsed_ms, time_points, count):
     br = float(ix) / float(length)
     if time_points is not None:
         add_time_point(time_points, count, (br, elapsed_ms))
@@ -90,15 +89,24 @@ def method_blocks(out, prefix, ix, length, width, elapsed_ms, time_points, count
         if ix < length:
             r = br * width
             ri = int(math.floor(r))
-            bar = "{0}{1}{2}".format(BLOCKS[-1] * ri, BLOCKS[int(math.floor((r - ri) * len(BLOCKS)))], BLOCKS[0] * (width - ri - 1))
+            bar = "{0}{1}{2}".format(
+                BLOCKS[-1] * ri,
+                BLOCKS[int(math.floor((r - ri) * len(BLOCKS)))],
+                BLOCKS[0] * (width - ri - 1))
         else:
             bar = "{0}".format(BLOCKS[-1] * width)
-        out.write("\r{0}|{1}| {2:6.2f}% (T {3} ETA {4})".format(prefix, bar, br * 100.0, convert_time(elapsed_ms), convert_time(eta)))
+        out.write("\r{0}|{1}| {2:6.2f}% (T {3} ETA {4})".format(
+            prefix, bar,
+            br * 100.0,
+            convert_time(elapsed_ms), convert_time(eta)))
     else:
-        out.write("\r{0}{1:6.2f}% (T {3} ETA {4})".format(prefix, br * 100.0, convert_time(elapsed_ms), convert_time(eta)))
+        out.write("\r{0}{1:6.2f}% (T {2} ETA {3})".format(
+            prefix, br * 100.0, convert_time(elapsed_ms), convert_time(eta)))
     return count + 1
 
-def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None, method=method_blocks, width=20, delay=100):
+
+def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
+             method=method_blocks, width=20, delay=100):
     start_time = get_time()
     last_progress = start_time
     points = []
@@ -107,17 +115,24 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None, method=method_blo
     try:
         length = to_ix - from_ix
         count = method(out, prefix, 0, length, width, 0, points, count)
-        for ix in xrange(from_ix, to_ix):
-            cur_progress = get_time()
+        cur_progress = get_time()
+        for ix in range(from_ix, to_ix):
             if (cur_progress - last_progress) * 1000.0 >= delay:
-                count = method(out, prefix, ix, length, width, (cur_progress - start_time) * 1000.0, points, count)
+                count = method(out, prefix, ix, length, width,
+                               (cur_progress - start_time) * 1000.0,
+                               points, count)
                 last_progress = cur_progress
             job(ix, length)
-        count = method(out, prefix, length, length, width, (cur_progress - start_time) * 1000.0, None, count)
+            cur_progress = get_time()
+        count = method(out, prefix, length, length, width,
+                       (cur_progress - start_time) * 1000.0,
+                       None, count)
     finally:
         out.write("\n")
 
-def progress_list(iterator, job, out=sys.stderr, prefix=None, method=method_blocks, width=20, delay=100):
+
+def progress_list(iterator, job, out=sys.stderr, prefix=None,
+                  method=method_blocks, width=20, delay=100):
     start_time = get_time()
     last_progress = start_time
     points = []
@@ -126,20 +141,34 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None, method=method_bloc
     try:
         length = len(iterator)
         count = method(out, prefix, 0, length, width, 0, points, count)
+        cur_progress = get_time()
         for (ix, elem) in enumerate(iterator):
-            cur_progress = get_time()
             if (cur_progress - last_progress) * 1000.0 >= delay:
-                count = method(out, prefix, ix, length, width, (cur_progress - start_time) * 1000.0, points, count)
+                count = method(out, prefix, ix, length, width,
+                               (cur_progress - start_time) * 1000.0,
+                               points, count)
                 last_progress = cur_progress
             job(elem)
-        count = method(out, prefix, length, length, width, (cur_progress - start_time) * 1000.0, None, count)
+            cur_progress = get_time()
+        count = method(out, prefix, length, length, width,
+                       (cur_progress - start_time) * 1000.0,
+                       None, count)
     finally:
         out.write("\n")
 
+
+INDEF = [
+    "-",
+    "\\",
+    "|",
+    "/",
+]
 def method_indef(out, prefix, rot):
     out.write("\r{0}{1}".format(prefix, INDEF[rot % len(INDEF)]))
 
-def progress_indef(iterator, job, out=sys.stderr, prefix=None, method=method_indef, delay=100):
+
+def progress_indef(iterator, job, out=sys.stderr, prefix=None,
+                   method=method_indef, delay=100):
     last_progress = get_time()
     prefix = str(prefix) + ": " if prefix is not None else ""
     rot = 0

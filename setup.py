@@ -13,13 +13,14 @@ from os import path
 
 here = path.abspath(path.dirname(__file__))
 
-with open(path.join(here, 'readme.md'), encoding='utf-8') as f:
+with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
     name='progress_bar',
     version='0.1.0',
-    description='A visually appealing progress bar for long lasting computations.',
+    description='A visually appealing progress bar for long lasting '
+                'computations.',
     long_description=long_description,
     url='https://github.com/JosuaKrause/progress_bar',
     author='Josua Krause',
@@ -31,6 +32,7 @@ setup(
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
     ],
     keywords='visual progress bar time estimation',
     py_modules=['progress_bar'],
@@ -38,13 +40,4 @@ setup(
         'numpy',
         'scikit-learn',
     ],
-    extras_require={
-        'dev': [],
-        'test': [],
-    },
-    data_files=[],
-    entry_points={
-        'console_scripts': [
-        ],
-    },
 )
