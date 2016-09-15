@@ -4,26 +4,42 @@ It also computes the remaining estimated time for the task by ad-hoc learning
 of the completion so far. For this reason `scikit-learn` and `numpy` are
 required.
 
+You can install *progress_bar* via
+```bash
+pip install --user git+https://github.com/JosuaKrause/progress_bar.git
+```
+
+and import it in python using:
+```python
+import progress_bar
+```
+
 Compute a task as follows:
 ```python
 from __future__ import print_function
 import time
 
-def task(elem):
-    print("sleep: " + str(elem))
-    time.sleep(elem)
-    print("done")
+res = [ 0 ]
 
-progress_bar.progress_list([ 1, 3, 2 ], task, prefix="sleep list")
+def task(elem):
+    time.sleep(0.01)
+    res[0] += elem
+
+progress_bar.progress_list(range(1000), task, prefix="sleep list")
+print(res[0])
 ```
 or in a range:
 ```python
-progress_bar.progress(0, 5, task, prefix="sleep range")
+def task_range(cur_ix, length):
+    task(cur_ix)
+
+progress_bar.progress(0, 1000, task_range, prefix="sleep range")
+print(res[0])
 ```
 
 The output looks roughly like this:
 ```
-sleep list: |█████████████████▍  |  87.01% (T   2m 11s ETA   2m 52s)
+sleep list: |████████████▌       |  62.30% (T   7.492s ETA   6.791s)
 ```
 
 If no estimate of the progress towards completion can be made use:
@@ -35,12 +51,7 @@ def repeat(num):
 progress_bar.progress_indef(repeat(1), task, prefix="sleep indefinitely")
 ```
 
-You can install *progress_bar* via
-```bash
-pip install --user git+https://github.com/JosuaKrause/progress_bar.git
+which produces output like this:
 ```
-
-and import it in python using:
-```python
-import progress_bar
+sleep indefinitely: /
 ```

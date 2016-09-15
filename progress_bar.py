@@ -57,6 +57,9 @@ def convert_time(value):
         prev_c = conv
     return cur
 
+def get_time():
+    return time.time()
+
 max_time_list = 1000
 def add_time_point(time_points, count, p):
     if len(time_points) < max_time_list:
@@ -96,7 +99,7 @@ def method_blocks(out, prefix, ix, length, width, elapsed_ms, time_points, count
     return count + 1
 
 def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None, method=method_blocks, width=20, delay=100):
-    start_time = time.clock()
+    start_time = get_time()
     last_progress = start_time
     points = []
     count = 0
@@ -105,7 +108,7 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None, method=method_blo
         length = to_ix - from_ix
         count = method(out, prefix, 0, length, width, 0, points, count)
         for ix in xrange(from_ix, to_ix):
-            cur_progress = time.clock()
+            cur_progress = get_time()
             if (cur_progress - last_progress) * 1000.0 >= delay:
                 count = method(out, prefix, ix, length, width, (cur_progress - start_time) * 1000.0, points, count)
                 last_progress = cur_progress
@@ -115,7 +118,7 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None, method=method_blo
         out.write("\n")
 
 def progress_list(iterator, job, out=sys.stderr, prefix=None, method=method_blocks, width=20, delay=100):
-    start_time = time.clock()
+    start_time = get_time()
     last_progress = start_time
     points = []
     count = 0
@@ -124,7 +127,7 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None, method=method_bloc
         length = len(iterator)
         count = method(out, prefix, 0, length, width, 0, points, count)
         for (ix, elem) in enumerate(iterator):
-            cur_progress = time.clock()
+            cur_progress = get_time()
             if (cur_progress - last_progress) * 1000.0 >= delay:
                 count = method(out, prefix, ix, length, width, (cur_progress - start_time) * 1000.0, points, count)
                 last_progress = cur_progress
@@ -136,18 +139,18 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None, method=method_bloc
 def method_indef(out, prefix, rot):
     out.write("\r{0}{1}".format(prefix, INDEF[rot % len(INDEF)]))
 
-def progress_indef(iterator, job, out=sys.stderr, prefix=None, method=method_blocks, delay=100):
-    last_progress = time.clock()
+def progress_indef(iterator, job, out=sys.stderr, prefix=None, method=method_indef, delay=100):
+    last_progress = get_time()
     prefix = str(prefix) + ": " if prefix is not None else ""
     rot = 0
     try:
         method(out, prefix, rot)
         for elem in iterator:
-            cur_progress = time.clock()
+            cur_progress = get_time()
             if (cur_progress - last_progress) * 1000.0 >= delay:
                 rot += 1
                 method(out, prefix, rot)
                 last_progress = cur_progress
-            job(*elem)
+            job(elem)
     finally:
         out.write("\n")
