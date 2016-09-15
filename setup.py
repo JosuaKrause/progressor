@@ -38,13 +38,4 @@ setup(
         'numpy',
         'scikit-learn',
     ],
-    extras_require={
-        'dev': [],
-        'test': [],
-    },
-    data_files=[],
-    entry_points={
-        'console_scripts': [
-        ],
-    },
 )
