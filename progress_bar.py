@@ -95,7 +95,7 @@ def method_blocks(out, prefix, ix, length, width, elapsed_ms, time_points, count
             bar = "{0}".format(BLOCKS[-1] * width)
         out.write("\r{0}|{1}| {2:6.2f}% (T {3} ETA {4})".format(prefix, bar, br * 100.0, convert_time(elapsed_ms), convert_time(eta)))
     else:
-        out.write("\r{0}{1:6.2f}% (T {3} ETA {4})".format(prefix, br * 100.0, convert_time(elapsed_ms), convert_time(eta)))
+        out.write("\r{0}{1:6.2f}% (T {2} ETA {3})".format(prefix, br * 100.0, convert_time(elapsed_ms), convert_time(eta)))
     return count + 1
 
 def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None, method=method_blocks, width=20, delay=100):
@@ -107,12 +107,13 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None, method=method_blo
     try:
         length = to_ix - from_ix
         count = method(out, prefix, 0, length, width, 0, points, count)
+        cur_progress = get_time()
         for ix in xrange(from_ix, to_ix):
-            cur_progress = get_time()
             if (cur_progress - last_progress) * 1000.0 >= delay:
                 count = method(out, prefix, ix, length, width, (cur_progress - start_time) * 1000.0, points, count)
                 last_progress = cur_progress
             job(ix, length)
+            cur_progress = get_time()
         count = method(out, prefix, length, length, width, (cur_progress - start_time) * 1000.0, None, count)
     finally:
         out.write("\n")
@@ -126,12 +127,13 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None, method=method_bloc
     try:
         length = len(iterator)
         count = method(out, prefix, 0, length, width, 0, points, count)
+        cur_progress = get_time()
         for (ix, elem) in enumerate(iterator):
-            cur_progress = get_time()
             if (cur_progress - last_progress) * 1000.0 >= delay:
                 count = method(out, prefix, ix, length, width, (cur_progress - start_time) * 1000.0, points, count)
                 last_progress = cur_progress
             job(elem)
+            cur_progress = get_time()
         count = method(out, prefix, length, length, width, (cur_progress - start_time) * 1000.0, None, count)
     finally:
         out.write("\n")
