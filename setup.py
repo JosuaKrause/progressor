@@ -19,7 +19,8 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 setup(
     name='progress_bar',
     version='0.1.0',
-    description='A visually appealing progress bar for long lasting computations.',
+    description='A visually appealing progress bar for long lasting '
+                'computations.',
     long_description=long_description,
     url='https://github.com/JosuaKrause/progress_bar',
     author='Josua Krause',
