@@ -129,7 +129,7 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
         length = to_ix - from_ix
         count = method(out, prefix, 0, length, width, 0, points, count)
         cur_progress = get_time()
-        for ix in xrange(from_ix, to_ix):
+        for ix in range(from_ix, to_ix):
             if (cur_progress - last_progress) * 1000.0 >= delay:
                 count = method(out, prefix, ix, length, width,
                                (cur_progress - start_time) * 1000.0,
