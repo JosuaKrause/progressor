@@ -56,8 +56,14 @@ def add_time_point(time_points, count, p):
 
 
 def compute_eta(time_points, before):
-    if len(time_points) < 3:
+    if len(time_points) < 2:
         return None
+    if len(time_points) < 3:
+        x1, y1 = time_points[0]
+        x2, y2 = time_points[1]
+        if x2 == x1:
+            return None
+        return float(y2 * (1.0 - x1) - y1 * (1.0 - x2)) / float(x2 - x1)
     x, y = zip(*time_points)
     poly = PolynomialFeatures(degree=8)
     x = poly.fit_transform(np.sqrt(x).reshape((len(x), 1)))
