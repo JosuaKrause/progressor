@@ -112,8 +112,10 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
     points = []
     count = 0
     prefix = str(prefix) + ": " if prefix is not None else ""
+    length = to_ix - from_ix
+    if length == 0:
+        return
     try:
-        length = to_ix - from_ix
         count = method(out, prefix, 0, length, width, 0, points, count)
         cur_progress = get_time()
         for ix in range(from_ix, to_ix):
@@ -138,8 +140,10 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None,
     points = []
     count = 0
     prefix = str(prefix) + ": " if prefix is not None else ""
+    length = len(iterator)
+    if length == 0:
+        return
     try:
-        length = len(iterator)
         count = method(out, prefix, 0, length, width, 0, points, count)
         cur_progress = get_time()
         for (ix, elem) in enumerate(iterator):
