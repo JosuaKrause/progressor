@@ -83,6 +83,16 @@ BLOCKS = [
     "▉",
     "█",
 ]
+def compute_bar(br, width):
+    if br < 1.0:
+        r = br * width
+        ri = int(math.floor(r))
+        return "{0}{1}{2}".format(
+            BLOCKS[-1] * ri,
+            BLOCKS[int(math.floor((r - ri) * len(BLOCKS)))],
+            BLOCKS[0] * (width - ri - 1))
+    return "{0}".format(BLOCKS[-1] * width)
+
 def method_blocks(out, prefix, ix, length, width,
                   elapsed_ms, time_points, count):
     br = float(ix) / float(length)
@@ -92,15 +102,7 @@ def method_blocks(out, prefix, ix, length, width,
     else:
         eta = 0
     if width > 0:
-        if ix < length:
-            r = br * width
-            ri = int(math.floor(r))
-            bar = "{0}{1}{2}".format(
-                BLOCKS[-1] * ri,
-                BLOCKS[int(math.floor((r - ri) * len(BLOCKS)))],
-                BLOCKS[0] * (width - ri - 1))
-        else:
-            bar = "{0}".format(BLOCKS[-1] * width)
+        bar = compute_bar(br, width)
         out.write("\r{0}|{1}| {2:6.2f}% (T {3} ETA {4})".format(
             prefix, bar,
             br * 100.0,
@@ -193,3 +195,16 @@ def progress_indef(iterator, job, out=sys.stderr, prefix=None,
             job(elem)
     finally:
         out.write("\n")
+
+
+def histogram(items, width=50, out=sys.stderr):
+    max_value = None
+    for (_, v) in items:
+        if max_value is None:
+            max_value = v
+        else:
+            max_value = max(max_value, v)
+    if max_value is None:
+        return
+    for (prefix, v) in items:
+        out.write("{0} |{1}| {2}\n".format(prefix, compute_bar(float(v) / float(max_value), width), v))
