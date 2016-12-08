@@ -169,6 +169,36 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None,
         out.write("\n")
 
 
+def progress_map(iterator, job, out=sys.stderr, prefix=None,
+                 method=method_blocks, width=20, delay=100):
+    start_time = get_time()
+    last_progress = start_time
+    points = []
+    count = 0
+    prefix = str(prefix) + ": " if prefix is not None else ""
+    length = len(iterator)
+    res = []
+    if length == 0:
+        return res
+    try:
+        count = method(out, prefix, 0, length, width, 0, points, count)
+        cur_progress = get_time()
+        for (ix, elem) in enumerate(iterator):
+            if (cur_progress - last_progress) * 1000.0 >= delay:
+                count = method(out, prefix, ix, length, width,
+                               (cur_progress - start_time) * 1000.0,
+                               points, count)
+                last_progress = cur_progress
+            res.append(job(elem))
+            cur_progress = get_time()
+        count = method(out, prefix, length, length, width,
+                       (cur_progress - start_time) * 1000.0,
+                       None, count)
+    finally:
+        out.write("\n")
+    return res
+
+
 INDEF = [
     "-",
     "\\",
