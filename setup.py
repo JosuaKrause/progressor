@@ -16,8 +16,12 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
+# NOTE! steps to distribute:
+#$ python setup.py sdist bdist_wheel
+#$ twine upload dist/... <- here be the new version!
+
 setup(
-    name='progress_bar',
+    name='progressor',
     version='0.1.0',
     description='A visually appealing progress bar for long lasting '
                 'computations.',
@@ -35,7 +39,7 @@ setup(
         'Programming Language :: Python :: 3',
     ],
     keywords='visual progress bar time estimation',
-    py_modules=['progress_bar'],
+    py_modules=['progressor'],
     install_requires=[
         'numpy',
         'scikit-learn',
