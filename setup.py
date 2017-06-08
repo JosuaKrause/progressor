@@ -22,11 +22,11 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='progressor',
-    version='0.1.1',
+    version='0.1.2',
     description='A visually appealing progress bar for long lasting '
                 'computations.',
     long_description=long_description,
-    url='https://github.com/JosuaKrause/progress_bar',
+    url='https://github.com/JosuaKrause/progressor',
     author='Josua Krause',
     author_email='josua.krause@gmail.com',
     license='MIT',
