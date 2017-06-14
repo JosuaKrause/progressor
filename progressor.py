@@ -44,7 +44,7 @@ def convert_time(value):
 
 
 def get_time():
-    return time.time()
+    return time.clock()
 
 
 max_time_list = 1000
