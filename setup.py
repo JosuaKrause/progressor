@@ -22,7 +22,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='progressor',
-    version='0.1.3',
+    version='0.1.5',
     description='A visually appealing progress bar for long lasting '
                 'computations.',
     long_description=long_description,

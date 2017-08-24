@@ -11,7 +11,7 @@ import numpy as np
 from sklearn import linear_model
 from sklearn.preprocessing import PolynomialFeatures
 
-__version__ = "0.1.3"
+__version__ = "0.1.5"
 
 
 times = [
@@ -43,8 +43,12 @@ def convert_time_ms(value):
     return cur
 
 
+if hasattr(time, "monotonic"):
+    _get_time_ms = lambda: time.monotonic() * 1000.0
+else:
+    _get_time_ms = lambda: time.clock() * 1000.0
 def get_time_ms():
-    return time.clock() * 1000.0
+    return _get_time_ms()
 
 
 max_time_list = 1000
