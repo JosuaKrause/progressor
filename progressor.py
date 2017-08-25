@@ -7,10 +7,6 @@ import time
 import math
 import random
 
-import numpy as np
-from sklearn import linear_model
-from sklearn.preprocessing import PolynomialFeatures
-
 __version__ = "0.1.8"
 
 
@@ -64,12 +60,6 @@ def add_time_point(time_points, count, p):
 def compute_eta(time_points, before):
     if len(time_points) < 2:
         return None
-    # if len(time_points) < 3:
-    #     x1, y1 = time_points[0]
-    #     x2, y2 = time_points[1]
-    #     if x2 == x1:
-    #         return None
-    #     return float(y2 * (1.0 - x1) - y1 * (1.0 - x2)) / float(x2 - x1)
     total = 0.0
     number = 0.0
     prev_x = None
@@ -82,11 +72,6 @@ def compute_eta(time_points, before):
             number += 1
         prev_x = x
         prev_y = y
-    # poly = PolynomialFeatures(degree=8)
-    # x = poly.fit_transform(np.sqrt(x).reshape((len(x), 1)))
-    # clf = linear_model.Ridge(alpha=0.5)
-    # clf.fit(x, y)
-    # return max(0, clf.predict(poly.transform(np.array([[1.0]])))[0] - before)
     return float(total) / float(number) - before
 
 BLOCKS = [
