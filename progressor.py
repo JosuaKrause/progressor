@@ -11,7 +11,14 @@ import numpy as np
 from sklearn import linear_model
 from sklearn.preprocessing import PolynomialFeatures
 
-__version__ = "0.1.6"
+try:
+    from cStringIO import StringIO
+except ModuleNotFoundError:
+    from io import StringIO
+except ImportError:
+    from StringIO import StringIO
+
+__version__ = "0.1.7"
 
 
 times = [
@@ -130,8 +137,52 @@ def method_blocks(out, prefix, ix, length, width,
     return count + 1
 
 
+_in_progress = None
+
+
+def _get_width(cb):
+    s = StringIO()
+    cb(s)
+    return s.tell()
+
+
+def adhoc_writer(print_function):
+
+    class Adhoc(object):
+        def write(text):
+            print_function(text)
+            return len(text)
+
+        def flush():
+            pass
+
+    return Adhoc()
+
+
+def progress_note(note, out=sys.stderr):
+    if _in_progress is None:
+        out.write(note)
+    else:
+        out = _in_progress.get("out", out)
+        width = _in_progress.get("width", 0)
+        pad = " " * max(0, width - len(note) + 1)
+        out.write("\r")
+        out.write(note)
+        out.write(pad)
+    out.write("\n")
+    out.flush()
+
+
 def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
              method=method_blocks, width=20, delay=100):
+    global _in_progress
+    if _in_progress is not None:
+        out.write("[progressor] nested progress bars are not supported yet!\n")
+        out.flush()
+    _in_progress = {
+        "out": out,
+        "width": _get_width(lambda o: method(o, prefix, 1, 1, width, 0, [], 0)),
+    }
     start_time = get_time_ms()
     last_progress = start_time
     points = []
@@ -154,10 +205,19 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
                        cur_progress - start_time, None, count)
     finally:
         out.write("\n")
+        _in_progress = None
 
 
 def progress_list(iterator, job, out=sys.stderr, prefix=None,
                   method=method_blocks, width=20, delay=100):
+    global _in_progress
+    if _in_progress is not None:
+        out.write("[progressor] nested progress bars are not supported yet!\n")
+        out.flush()
+    _in_progress = {
+        "out": out,
+        "width": _get_width(lambda o: method(o, prefix, 1, 1, width, 0, [], 0)),
+    }
     start_time = get_time_ms()
     last_progress = start_time
     points = []
@@ -180,10 +240,19 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None,
                        cur_progress - start_time, None, count)
     finally:
         out.write("\n")
+        _in_progress = None
 
 
 def progress_map(iterator, job, out=sys.stderr, prefix=None,
                  method=method_blocks, width=20, delay=100):
+    global _in_progress
+    if _in_progress is not None:
+        out.write("[progressor] nested progress bars are not supported yet!\n")
+        out.flush()
+    _in_progress = {
+        "out": out,
+        "width": _get_width(lambda o: method(o, prefix, 1, 1, width, 0, [], 0)),
+    }
     start_time = get_time_ms()
     last_progress = start_time
     points = []
@@ -207,6 +276,7 @@ def progress_map(iterator, job, out=sys.stderr, prefix=None,
                        cur_progress - start_time, None, count)
     finally:
         out.write("\n")
+        _in_progress = None
     return res
 
 
@@ -222,6 +292,14 @@ def method_indef(out, prefix, rot):
 
 def progress_indef(iterator, job, out=sys.stderr, prefix=None,
                    method=method_indef, delay=100):
+    global _in_progress
+    if _in_progress is not None:
+        out.write("[progressor] nested progress bars are not supported yet!\n")
+        out.flush()
+    _in_progress = {
+        "out": out,
+        "width": _get_width(lambda o: method(o, prefix, 0)),
+    }
     last_progress = get_time_ms()
     prefix = str(prefix) + ": " if prefix is not None else ""
     rot = 0
@@ -236,6 +314,7 @@ def progress_indef(iterator, job, out=sys.stderr, prefix=None,
             job(elem)
     finally:
         out.write("\n")
+        _in_progress = None
 
 
 def histogram(items, width=50, out=sys.stderr):
