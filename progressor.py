@@ -11,14 +11,7 @@ import numpy as np
 from sklearn import linear_model
 from sklearn.preprocessing import PolynomialFeatures
 
-try:
-    from cStringIO import StringIO
-except ModuleNotFoundError:
-    from io import StringIO
-except ImportError:
-    from StringIO import StringIO
-
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 
 
 times = [
@@ -137,52 +130,76 @@ def method_blocks(out, prefix, ix, length, width,
     return count + 1
 
 
-_in_progress = None
+class SafePrinter(object):
+    def __init__(self, writer):
+        self._w = writer
+        self._reset = False
+        self._cur_width = 0
+        self._last_width = 0
+        self._system = []
+        if writer == sys.stdout:
+            self._system.append("out")
+            sys.stdout = self
+        if writer == sys.stderr:
+            self._system.append("err")
+            sys.stderr = self
+        self._update_configuration()
 
+    def _update_configuration(self):
+        self.closed = self._w.closed
+        self.encoding = self._w.encoding
 
-def _get_width(cb):
-    s = StringIO()
-    cb(s)
-    return s.tell()
+    def _finish(self):
+        for s in self._system:
+            if s == "out":
+                sys.stdout = self._w
+            if s == "err":
+                sys.stderr = self._w
 
+    def flush(self):
+        self._w.flush()
 
-def adhoc_writer(print_function):
+    def isatty(self):
+        return self._w.isatty()
 
-    class Adhoc(object):
-        def write(text):
-            print_function(text)
-            return len(text)
+    def close(self):
+        self._w.close()
+        self._update_configuration()
 
-        def flush():
-            pass
+    def writelines(self, lines):
+        for l in lines:
+            self.write(l)
 
-    return Adhoc()
-
-
-def progress_note(note, out=sys.stderr):
-    if _in_progress is None:
-        out.write(note)
-    else:
-        out = _in_progress.get("out", out)
-        width = _in_progress.get("width", 0)
-        pad = " " * max(0, width - len(note) + 1)
-        out.write("\r")
-        out.write(note)
-        out.write(pad)
-    out.write("\n")
-    out.flush()
+    def write(self, text):
+        firstLF = True
+        for l in text.split("\n"):
+            if self._reset:
+                self._w.write("\r{0}\r".format(" " * max(self._cur_width, self._last_width)))
+                self._cur_width = 0
+                self._last_width = 0
+                self._reset = False
+            if not firstLF:
+                self._w.write("\n")
+                self._cur_width = 0
+                self._last_width = 0
+                self._reset = False
+            firstLF = False
+            firstCR = True
+            for chunk in l.split("\r"):
+                if not firstCR:
+                    self._w.write("\r")
+                    self._last_width = max(self._last_width, self._cur_width)
+                    self._cur_width = 0
+                    self._reset = True
+                firstCR = False
+                self._w.write(chunk)
+                self._cur_width += len(chunk)
+        self._w.flush()
 
 
 def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
              method=method_blocks, width=20, delay=100):
-    global _in_progress
-    if _in_progress is not None:
-        out.write("[progressor] nested progress bars are not supported yet!\n")
-        out.flush()
-    _in_progress = {
-        "out": out,
-        "width": _get_width(lambda o: method(o, prefix, 1, 1, width, 0, [], 0)),
-    }
+    out = SafePrinter(out)
     start_time = get_time_ms()
     last_progress = start_time
     points = []
@@ -204,20 +221,15 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
         count = method(out, prefix, length, length, width,
                        cur_progress - start_time, None, count)
     finally:
-        out.write("\n")
-        _in_progress = None
+        try:
+            out.write("\n")
+        finally:
+            out._finish()
 
 
 def progress_list(iterator, job, out=sys.stderr, prefix=None,
                   method=method_blocks, width=20, delay=100):
-    global _in_progress
-    if _in_progress is not None:
-        out.write("[progressor] nested progress bars are not supported yet!\n")
-        out.flush()
-    _in_progress = {
-        "out": out,
-        "width": _get_width(lambda o: method(o, prefix, 1, 1, width, 0, [], 0)),
-    }
+    out = SafePrinter(out)
     start_time = get_time_ms()
     last_progress = start_time
     points = []
@@ -239,20 +251,15 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None,
         count = method(out, prefix, length, length, width,
                        cur_progress - start_time, None, count)
     finally:
-        out.write("\n")
-        _in_progress = None
+        try:
+            out.write("\n")
+        finally:
+            out._finish()
 
 
 def progress_map(iterator, job, out=sys.stderr, prefix=None,
                  method=method_blocks, width=20, delay=100):
-    global _in_progress
-    if _in_progress is not None:
-        out.write("[progressor] nested progress bars are not supported yet!\n")
-        out.flush()
-    _in_progress = {
-        "out": out,
-        "width": _get_width(lambda o: method(o, prefix, 1, 1, width, 0, [], 0)),
-    }
+    out = SafePrinter(out)
     start_time = get_time_ms()
     last_progress = start_time
     points = []
@@ -275,8 +282,10 @@ def progress_map(iterator, job, out=sys.stderr, prefix=None,
         count = method(out, prefix, length, length, width,
                        cur_progress - start_time, None, count)
     finally:
-        out.write("\n")
-        _in_progress = None
+        try:
+            out.write("\n")
+        finally:
+            out._finish()
     return res
 
 
@@ -292,14 +301,7 @@ def method_indef(out, prefix, rot):
 
 def progress_indef(iterator, job, out=sys.stderr, prefix=None,
                    method=method_indef, delay=100):
-    global _in_progress
-    if _in_progress is not None:
-        out.write("[progressor] nested progress bars are not supported yet!\n")
-        out.flush()
-    _in_progress = {
-        "out": out,
-        "width": _get_width(lambda o: method(o, prefix, 0)),
-    }
+    out = SafePrinter(out)
     last_progress = get_time_ms()
     prefix = str(prefix) + ": " if prefix is not None else ""
     rot = 0
@@ -313,8 +315,10 @@ def progress_indef(iterator, job, out=sys.stderr, prefix=None,
                 last_progress = cur_progress
             job(elem)
     finally:
-        out.write("\n")
-        _in_progress = None
+        try:
+            out.write("\n")
+        finally:
+            out._finish()
 
 
 def histogram(items, width=50, out=sys.stderr):
