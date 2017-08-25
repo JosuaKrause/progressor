@@ -22,7 +22,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='progressor',
-    version='0.1.8',
+    version='0.1.9',
     description='A visually appealing progress bar for long lasting '
                 'computations.',
     long_description=long_description,
@@ -40,8 +40,5 @@ setup(
     ],
     keywords='visual progress bar time estimation',
     py_modules=['progressor'],
-    install_requires=[
-        'numpy',
-        'scikit-learn',
-    ],
+    install_requires=[],
 )
