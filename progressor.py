@@ -7,7 +7,7 @@ import time
 import math
 import random
 
-__version__ = "0.1.9"
+__version__ = "0.1.10"
 
 
 times = [
@@ -129,17 +129,23 @@ class SafePrinter(object):
             self._system.append("err")
             sys.stderr = self
         self._update_configuration()
+        self._finished = False
 
     def _update_configuration(self):
         self.closed = self._w.closed
         self.encoding = self._w.encoding
 
     def _finish(self):
+        if self._finished:
+            return
         for s in self._system:
             if s == "out":
                 sys.stdout = self._w
             if s == "err":
                 sys.stderr = self._w
+        self._finished = True
+        if self._reset:
+            self._w.write("\n")
 
     def flush(self):
         self._w.flush()
@@ -156,15 +162,18 @@ class SafePrinter(object):
             self.write(l)
 
     def write(self, text):
+        if self._finished:
+            return self._w.write(text)
+        count = 0
         firstLF = True
         for l in text.split("\n"):
             if self._reset:
-                self._w.write("\r{0}\r".format(" " * max(self._cur_width, self._last_width)))
+                count += self._w.write("\r{0}\r".format(" " * max(self._cur_width, self._last_width)))
                 self._cur_width = 0
                 self._last_width = 0
                 self._reset = False
             if not firstLF:
-                self._w.write("\n")
+                count += self._w.write("\n")
                 self._cur_width = 0
                 self._last_width = 0
                 self._reset = False
@@ -172,14 +181,15 @@ class SafePrinter(object):
             firstCR = True
             for chunk in l.split("\r"):
                 if not firstCR:
-                    self._w.write("\r")
+                    count += self._w.write("\r")
                     self._last_width = max(self._last_width, self._cur_width)
                     self._cur_width = 0
                     self._reset = True
                 firstCR = False
-                self._w.write(chunk)
+                count += self._w.write(chunk)
                 self._cur_width += len(chunk)
         self._w.flush()
+        return count
 
 
 def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
@@ -206,10 +216,7 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
         count = method(out, prefix, length, length, width,
                        cur_progress - start_time, None, count)
     finally:
-        try:
-            out.write("\n")
-        finally:
-            out._finish()
+        out._finish()
 
 
 def progress_list(iterator, job, out=sys.stderr, prefix=None,
@@ -236,10 +243,7 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None,
         count = method(out, prefix, length, length, width,
                        cur_progress - start_time, None, count)
     finally:
-        try:
-            out.write("\n")
-        finally:
-            out._finish()
+        out._finish()
 
 
 def progress_map(iterator, job, out=sys.stderr, prefix=None,
@@ -267,10 +271,7 @@ def progress_map(iterator, job, out=sys.stderr, prefix=None,
         count = method(out, prefix, length, length, width,
                        cur_progress - start_time, None, count)
     finally:
-        try:
-            out.write("\n")
-        finally:
-            out._finish()
+        out._finish()
     return res
 
 
@@ -300,10 +301,7 @@ def progress_indef(iterator, job, out=sys.stderr, prefix=None,
                 last_progress = cur_progress
             job(elem)
     finally:
-        try:
-            out.write("\n")
-        finally:
-            out._finish()
+        out._finish()
 
 
 def histogram(items, width=50, out=sys.stderr):
