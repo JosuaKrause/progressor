@@ -6,8 +6,16 @@ import sys
 import time
 import math
 import random
+from multiprocessing import Pool, RLock, get_start_method
 
-__version__ = "0.1.10"
+try:
+    from cStringIO import StringIO
+except ModuleNotFoundError:
+    from io import StringIO
+except ImportError:
+    from StringIO import StringIO
+
+__version__ = "0.1.11"
 
 
 times = [
@@ -192,6 +200,36 @@ class SafePrinter(object):
         return count
 
 
+class LockedSafePrinter(SafePrinter):
+    def __init__(self, writer, lock):
+        SafePrinter.__init__(self, writer)
+        self._lock = lock
+
+    def _finish(self):
+        with self._lock:
+            SafePrinter._finish(self)
+
+    def flush(self):
+        with self._lock:
+            SafePrinter.flush(self)
+
+    def isatty(self):
+        with self._lock:
+            return SafePrinter.isatty(self)
+
+    def close(self):
+        with self._lock:
+            SafePrinter.close(self)
+
+    def writelines(self, lines):
+        with self._lock:
+            SafePrinter.writelines(self, lines)
+
+    def write(self, text):
+        with self._lock:
+            return SafePrinter.write(self, text)
+
+
 def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
              method=method_blocks, width=20, delay=100):
     out = SafePrinter(out)
@@ -246,22 +284,24 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None,
         out._finish()
 
 
-def progress_map(iterator, job, out=sys.stderr, prefix=None,
-                 method=method_blocks, width=20, delay=100):
+def progress_map(arr, job, out=sys.stderr, prefix=None,
+                 method=method_blocks, width=20, delay=100, parallel=False):
+    if parallel:
+        return _progress_pool_map(arr, job, out, prefix, method, width, delay)
     out = SafePrinter(out)
     start_time = get_time_ms()
     last_progress = start_time
     points = []
     count = 0
     prefix = str(prefix) + ": " if prefix is not None else ""
-    length = len(iterator)
+    length = len(arr)
     res = []
     if length == 0:
         return res
     try:
         count = method(out, prefix, 0, length, width, 0, points, count)
         cur_progress = get_time_ms()
-        for (ix, elem) in enumerate(iterator):
+        for (ix, elem) in enumerate(arr):
             if cur_progress - last_progress >= delay:
                 count = method(out, prefix, ix, length, width,
                                cur_progress - start_time, points, count)
@@ -272,6 +312,74 @@ def progress_map(iterator, job, out=sys.stderr, prefix=None,
                        cur_progress - start_time, None, count)
     finally:
         out._finish()
+    return res
+
+
+def _progress_pool_map(arr, job, out, prefix, method, width, delay):
+    lock = RLock()
+    out = LockedSafePrinter(out, lock)
+    start_time = get_time_ms()
+    points = []
+    prefix = str(prefix) + ": " if prefix is not None else ""
+    length = len(arr)
+    res = []
+    if length == 0:
+        return res
+    oldout = sys.stdout
+    olderr = sys.stderr
+    sout = StringIO()
+    serr = StringIO()
+    state = {
+        "count": 0,
+        "last_progress": start_time,
+        "cur_progress": get_time_ms(),
+        "ix": 0,
+        "lastout": 0,
+        "lasterr": 0,
+        "lastex": None,
+    }
+
+    def empty_buff(sio, rio, name):
+        with lock():
+            sio.seek(state[name])
+            rio.write(sio.read())
+            rio.flush()
+            state[name] = sio.tell()
+
+    def okay(e):
+        with lock:
+            empty_buff(sout, oldout, "lastout")
+            empty_buff(serr, olderr, "lasterr")
+            state["ix"] += 1
+            state["cur_progress"] = get_time_ms()
+            if state["cur_progress"] - state["last_progress"] >= delay:
+                state["count"] = method(out, prefix, state["ix"], length, width,
+                    state["cur_progress"] - start_time, points, state["count"])
+                state["last_progress"] = state["cur_progress"]
+
+    def err(ex):
+        with lock:
+            print("", file=olderr)
+            print(ex, file=olderr)
+            state["lastex"] = ex
+
+    try:
+        sys.stdout = sout
+        sys.stderr = serr
+        with Pool() as pool:
+            state["count"] = method(out, prefix, 0, length, width, 0, points, state["count"])
+            res_arr = pool.map_async(job, arr, chunksize=10, callback=okay, error_callback=err)
+            res = res_arr.get()
+            state["count"] = method(out, prefix, length, length, width,
+                state["cur_progress"] - start_time, None, state["count"])
+    finally:
+        empty_buff(sout, oldout, "lastout")
+        empty_buff(serr, olderr, "lasterr")
+        sys.stdout = oldout
+        sys.stderr = olderr
+        out._finish()
+        if state["lastex"] is not None:
+            raise state["lastex"]
     return res
 
 
