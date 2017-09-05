@@ -72,7 +72,7 @@ def compute_eta(time_points, before):
             number += 1
         prev_x = x
         prev_y = y
-    return float(total) / float(number) - before
+    return max(float(total) / float(number) - before, 0)
 
 BLOCKS = [
     " ",
