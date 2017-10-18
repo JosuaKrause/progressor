@@ -8,7 +8,7 @@ import time
 import math
 import random
 
-__version__ = "0.1.11"
+__version__ = "0.1.12"
 
 
 times = [
