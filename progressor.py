@@ -270,14 +270,19 @@ class IOWrapper(io.RawIOBase):
         return self._f.isatty()
 
     def flush(self):
-        if not self._f.closed:
-            self._f.flush()
-            super(io.RawIOBase, self).flush()
+        self._f.flush()
 
     def close(self):
         self._out._finish()
         self._f.close()
-        super(io.RawIOBase, self).close()
+
+    @property
+    def closed(self):
+        return self._f.closed
+
+    @property
+    def __closed(self):
+        return self._f.closed
 
     def readline(self, size=-1):
         res = self._f.readline(size)
