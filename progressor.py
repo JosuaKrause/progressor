@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 
+import io
 import sys
 import time
 import math
 import random
 
-__version__ = "0.1.10"
+__version__ = "0.1.11"
 
 
 times = [
@@ -115,6 +116,16 @@ def method_blocks(out, prefix, ix, length, width,
     return count + 1
 
 
+INDEF = [
+    "-",
+    "\\",
+    "|",
+    "/",
+]
+def method_indef(out, prefix, rot):
+    out.write("\r{0}{1}".format(prefix, INDEF[rot % len(INDEF)]))
+
+
 class SafePrinter(object):
     def __init__(self, writer):
         self._w = writer
@@ -190,6 +201,107 @@ class SafePrinter(object):
                 self._cur_width += len(chunk)
         self._w.flush()
         return count
+
+
+class IOWrapper(io.RawIOBase):
+    def __init__(self, f, out=sys.stderr, prefix=None,
+            method=method_blocks, width=20, delay=100, fallback=method_indef):
+        self._f = f
+        self._out = SafePrinter(out)
+        self._prefix = str(prefix) + ": " if prefix is not None else ""
+        self._method = method
+        self._width = width
+        self._delay = delay
+        self._start_time = get_time_ms()
+        self._last_progress = self._start_time
+        self._points = []
+        self._count = 0
+        if self.seekable():
+            orig = self.tell()
+            self.seek(0, io.SEEK_END)
+            self._length = self.tell()
+            self.seek(orig, io.SEEK_SET)
+            if self._length > 0:
+                self._count = self._method(self._out, self._prefix,
+                    0, self._length, self._width, 0, self._points, self._count)
+        else:
+            self._method = fallback
+            self._length = None
+            self._rot = 0
+            self._method(self._out, self._prefix, self._rot)
+
+    def _progress(self):
+        cur_progress = get_time_ms()
+        if cur_progress - self._last_progress >= self._delay:
+            if self._length is not None:
+                cur = self.tell()
+                if cur < self._length:
+                    self._count = self._method(self._out, self._prefix,
+                        cur, self._length, self._width,
+                        cur_progress - self._start_time,
+                        self._points, self._count)
+                else:
+                    self._count = self._method(self._out, self._prefix,
+                        self._length, self._length, self._width,
+                        cur_progress - self._start_time,
+                        None, self._count)
+            else:
+                self._rot += 1
+                self._method(self._out, self._prefix, self._rot)
+            self._last_progress = cur_progress
+
+    def seek(self, pos, whence=0):
+        return self._f.seek(pos, whence)
+
+    def tell(self):
+        return self._f.tell()
+
+    def seekable(self):
+        return self._f.seekable()
+
+    def readable(self):
+        return self._f.readable()
+
+    def fileno(self):
+        return self._f.fileno()
+
+    def isatty(self):
+        return self._f.isatty()
+
+    def flush(self):
+        if not self._f.closed:
+            self._f.flush()
+            super(io.RawIOBase, self).flush()
+
+    def close(self):
+        self._out._finish()
+        self._f.close()
+        super(io.RawIOBase, self).close()
+
+    def readline(self, size=-1):
+        res = self._f.readline(size)
+        self._progress()
+        return res
+
+    def read(self, size=-1):
+        res = self._f.read(size)
+        self._progress()
+        return res
+
+    def readall(self):
+        res = self._f.readall()
+        self._progress()
+        return res
+
+    def readinto(self, b):
+        res = self._f.readinto(b)
+        self._progress()
+        return res
+
+
+def progress_wrap(f, out=sys.stderr, prefix=None,
+            method=method_blocks, width=20, delay=100, fallback=method_indef):
+    return IOWrapper(f, out, prefix, method, width, delay)
 
 
 def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
@@ -273,16 +385,6 @@ def progress_map(iterator, job, out=sys.stderr, prefix=None,
     finally:
         out._finish()
     return res
-
-
-INDEF = [
-    "-",
-    "\\",
-    "|",
-    "/",
-]
-def method_indef(out, prefix, rot):
-    out.write("\r{0}{1}".format(prefix, INDEF[rot % len(INDEF)]))
 
 
 def progress_indef(iterator, job, out=sys.stderr, prefix=None,
