@@ -216,11 +216,12 @@ class IOWrapper(io.RawIOBase):
         self._last_progress = self._start_time
         self._points = []
         self._count = 0
+        self._orig = 0
         if self.seekable():
-            orig = self.tell()
+            self._orig = self.tell()
             self.seek(0, io.SEEK_END)
-            self._length = self.tell()
-            self.seek(orig, io.SEEK_SET)
+            self._length = self.tell() - self._orig
+            self.seek(self._orig, io.SEEK_SET)
             if self._length > 0:
                 self._count = self._method(self._out, self._prefix,
                     0, self._length, self._width, 0, self._points, self._count)
@@ -234,7 +235,7 @@ class IOWrapper(io.RawIOBase):
         cur_progress = get_time_ms()
         if cur_progress - self._last_progress >= self._delay:
             if self._length is not None:
-                cur = self.tell()
+                cur = self.tell() - self._orig
                 if cur < self._length:
                     self._count = self._method(self._out, self._prefix,
                         cur, self._length, self._width,
