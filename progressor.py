@@ -414,7 +414,10 @@ def progress_indef(iterator, job, out=sys.stderr, prefix=None,
 
 def histogram(items, width=50, out=sys.stderr):
     max_value = None
-    for (_, v) in items:
+    max_len = 0
+    for (prefix, v) in items:
+        prefix = "{0}".format(prefix)
+        max_len = max(len(prefix), max_len)
         if max_value is None:
             max_value = v
         else:
@@ -422,4 +425,7 @@ def histogram(items, width=50, out=sys.stderr):
     if max_value is None:
         return
     for (prefix, v) in items:
-        out.write("{0} |{1}| {2}\n".format(prefix, compute_bar(float(v) / float(max_value), width), v))
+        prefix = "{0}".format(prefix)
+        padding = " " * (max_len - len(prefix))
+        out.write("{0}{1} |{2}| {3}\n".format(padding, prefix,
+            compute_bar(float(v) / float(max_value), width), v))
