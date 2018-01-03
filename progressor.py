@@ -273,6 +273,14 @@ class IOWrapper(io.RawIOBase):
         self._f.flush()
 
     def close(self):
+        if not self._out._finished:
+            if self._length is not None:
+                self._method(self._out, self._prefix,
+                    self._length, self._length, self._width,
+                    self._last_progress - self._start_time,
+                    None, self._count)
+            else:
+                self._method(self._out, self._prefix, self._rot)
         self._out._finish()
         self._f.close()
 
