@@ -122,9 +122,9 @@ INDEF = [
     "|",
     "/",
 ]
-def method_indef(out, prefix, rot):
+def method_indef(out, prefix, rot, elapsed_ms):
     if rot < 0:
-        out.write("\r{0}{1}".format(prefix, "done"))
+        out.write("\r{0}took {1}".format(prefix, convert_time_ms(elapsed_ms)))
     else:
         out.write("\r{0}{1}".format(prefix, INDEF[rot % len(INDEF)]))
 
@@ -232,7 +232,7 @@ class IOWrapper(io.RawIOBase):
             self._method = fallback
             self._length = None
             self._rot = 0
-            self._method(self._out, self._prefix, self._rot)
+            self._method(self._out, self._prefix, self._rot, self._last_progress - self._start_time)
 
     def _progress(self):
         cur_progress = get_time_ms()
@@ -251,7 +251,7 @@ class IOWrapper(io.RawIOBase):
                         None, self._count)
             else:
                 self._rot += 1
-                self._method(self._out, self._prefix, self._rot)
+                self._method(self._out, self._prefix, self._rot, cur_progress - self._start_time)
             self._last_progress = cur_progress
 
     def seek(self, pos, whence=0):
@@ -277,6 +277,7 @@ class IOWrapper(io.RawIOBase):
 
     def close(self):
         if not self._out._finished:
+            self._last_progress = get_time_ms()
             if self._length is not None:
                 self._method(self._out, self._prefix,
                     self._length, self._length, self._width,
@@ -284,7 +285,7 @@ class IOWrapper(io.RawIOBase):
                     None, self._count)
             else:
                 self._rot = -1
-                self._method(self._out, self._prefix, self._rot)
+                self._method(self._out, self._prefix, self._rot, self._last_progress - self._start_time)
         self._out._finish()
         self._f.close()
 
@@ -408,20 +409,22 @@ def progress_map(iterator, job, out=sys.stderr, prefix=None,
 def progress_indef(iterator, job, out=sys.stderr, prefix=None,
                    method=method_indef, delay=100):
     out = SafePrinter(out)
-    last_progress = get_time_ms()
+    start_time = get_time_ms()
+    last_progress = start_time
+    cur_progress = last_progress
     prefix = str(prefix) + ": " if prefix is not None else ""
     rot = 0
     try:
-        method(out, prefix, rot)
+        method(out, prefix, rot, cur_progress - start_time)
         for elem in iterator:
             cur_progress = get_time_ms()
             if cur_progress - last_progress >= delay:
                 rot += 1
-                method(out, prefix, rot)
+                method(out, prefix, rot, cur_progress - start_time)
                 last_progress = cur_progress
             job(elem)
     finally:
-        method(out, prefix, -1)
+        method(out, prefix, -1, cur_progress - start_time)
         out._finish()
 
 
