@@ -43,6 +43,13 @@ or in a range:
 
     progressor.progress(0, 1000, task_range, prefix="sleep range")
     print(res[0])
+    
+or while reading a file:
+
+.. code:: python
+
+    with progressor.IOWrapper(open(datafile, "r"), prefix="loading data", out=sys.stdout) as f_in:
+        data = f_in.read()
 
 The output looks roughly like this:
 
