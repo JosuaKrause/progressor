@@ -123,7 +123,10 @@ INDEF = [
     "/",
 ]
 def method_indef(out, prefix, rot):
-    out.write("\r{0}{1}".format(prefix, INDEF[rot % len(INDEF)]))
+    if rot < 0:
+        out.write("\r{0}{1}".format(prefix, "done"))
+    else:
+        out.write("\r{0}{1}".format(prefix, INDEF[rot % len(INDEF)]))
 
 
 class SafePrinter(object):
@@ -280,6 +283,7 @@ class IOWrapper(io.RawIOBase):
                     self._last_progress - self._start_time,
                     None, self._count)
             else:
+                self._rot = -1
                 self._method(self._out, self._prefix, self._rot)
         self._out._finish()
         self._f.close()
@@ -417,6 +421,7 @@ def progress_indef(iterator, job, out=sys.stderr, prefix=None,
                 last_progress = cur_progress
             job(elem)
     finally:
+        method(out, prefix, -1)
         out._finish()
 
 
