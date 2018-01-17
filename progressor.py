@@ -8,7 +8,7 @@ import time
 import math
 import random
 
-__version__ = "0.1.13"
+__version__ = "0.1.14"
 
 
 times = [
@@ -106,12 +106,12 @@ def method_blocks(out, prefix, ix, length, width,
         eta = 0
     if width > 0:
         bar = compute_bar(br, width)
-        out.write("\r{0}|{1}| {2:6.2f}% (T {3} ETA {4})".format(
+        out.write("{0}|{1}| {2:6.2f}% (T {3} ETA {4})".format(
             prefix, bar,
             br * 100.0,
             convert_time_ms(elapsed_ms), convert_time_ms(eta)))
     else:
-        out.write("\r{0}{1:6.2f}% (T {2} ETA {3})".format(
+        out.write("{0}{1:6.2f}% (T {2} ETA {3})".format(
             prefix, br * 100.0, convert_time_ms(elapsed_ms), convert_time_ms(eta)))
     return count + 1
 
@@ -124,9 +124,15 @@ INDEF = [
 ]
 def method_indef(out, prefix, rot, elapsed_ms):
     if rot < 0:
-        out.write("\r{0}took {1}".format(prefix, convert_time_ms(elapsed_ms)))
+        out.write("{0}took {1}".format(prefix, convert_time_ms(elapsed_ms)))
     else:
-        out.write("\r{0}{1}".format(prefix, INDEF[rot % len(INDEF)]))
+        out.write("{0}{1}".format(prefix, INDEF[rot % len(INDEF)]))
+
+
+def _get_prefix(prefix, isatty):
+    if isatty:
+        return "\r{0}: ".format(prefix) if prefix is not None else "\r"
+    return "{0}: ".format(prefix) if prefix is not None else ""
 
 
 class SafePrinter(object):
@@ -211,7 +217,8 @@ class IOWrapper(io.RawIOBase):
             method=method_blocks, width=20, delay=100, fallback=method_indef):
         self._f = f
         self._out = SafePrinter(out)
-        self._prefix = str(prefix) + ": " if prefix is not None else ""
+        self._isatty = out.isatty()
+        self._prefix = _get_prefix(prefix, self._isatty)
         self._method = method
         self._width = width
         self._delay = delay
@@ -226,32 +233,38 @@ class IOWrapper(io.RawIOBase):
             self._length = self.tell() - self._orig
             self.seek(self._orig, io.SEEK_SET)
             if self._length > 0:
-                self._count = self._method(self._out, self._prefix,
-                    0, self._length, self._width, 0, self._points, self._count)
+                self._callmethod(0, self._last_progress)
         else:
             self._method = fallback
             self._length = None
             self._rot = 0
-            self._method(self._out, self._prefix, self._rot, self._last_progress - self._start_time)
+            self._callmethod(self._rot, self._last_progress)
+
+    def _callmethod(self, cur, cur_time):
+        do_print = self._isatty
+        if self._length is not None:
+            if cur >= self._length:
+                if self._points is not None:
+                    do_print = True
+                self._points = None
+                cur = self._length
+            self._count = self._method(self._out,
+                self._prefix, cur, self._length, self._width,
+                cur_time - self._start_time, self._points, self._count)
+        else:
+            if self._rot < 0:
+                do_print = True
+            self._method(self._out, self._prefix, cur, cur_time - self._start_time)
 
     def _progress(self):
         cur_progress = get_time_ms()
         if cur_progress - self._last_progress >= self._delay:
             if self._length is not None:
                 cur = self.tell() - self._orig
-                if cur < self._length:
-                    self._count = self._method(self._out, self._prefix,
-                        cur, self._length, self._width,
-                        cur_progress - self._start_time,
-                        self._points, self._count)
-                else:
-                    self._count = self._method(self._out, self._prefix,
-                        self._length, self._length, self._width,
-                        cur_progress - self._start_time,
-                        None, self._count)
+                self._callmethod(cur, cur_progress)
             else:
                 self._rot += 1
-                self._method(self._out, self._prefix, self._rot, cur_progress - self._start_time)
+                self._callmethod(self._rot, cur_progress)
             self._last_progress = cur_progress
 
     def seek(self, pos, whence=0):
@@ -279,13 +292,10 @@ class IOWrapper(io.RawIOBase):
         if not self._out._finished:
             self._last_progress = get_time_ms()
             if self._length is not None:
-                self._method(self._out, self._prefix,
-                    self._length, self._length, self._width,
-                    self._last_progress - self._start_time,
-                    None, self._count)
+                self._callmethod(self._length, self._last_progress)
             else:
                 self._rot = -1
-                self._method(self._out, self._prefix, self._rot, self._last_progress - self._start_time)
+                self._callmethod(self._rot, self._last_progress)
         self._out._finish()
         self._f.close()
 
@@ -320,88 +330,103 @@ class IOWrapper(io.RawIOBase):
 
 def progress_wrap(f, out=sys.stderr, prefix=None,
             method=method_blocks, width=20, delay=100, fallback=method_indef):
-    return IOWrapper(f, out, prefix, method, width, delay)
+    return IOWrapper(f, out, prefix, method, width, delay, fallback)
 
 
 def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
              method=method_blocks, width=20, delay=100):
     out = SafePrinter(out)
+    isatty = out.isatty()
     start_time = get_time_ms()
     last_progress = start_time
     points = []
     count = 0
-    prefix = str(prefix) + ": " if prefix is not None else ""
+    prefix = _get_prefix(prefix, isatty)
     length = to_ix - from_ix
     if length == 0:
         return
+    cur_ix = 0
     try:
-        count = method(out, prefix, 0, length, width, 0, points, count)
+        if isatty:
+            count = method(out, prefix, cur_ix, length, width, 0, points, count)
         cur_progress = get_time_ms()
         for ix in range(from_ix, to_ix):
-            if cur_progress - last_progress >= delay:
-                count = method(out, prefix, ix, length, width,
+            cur_ix = ix
+            if isatty and cur_progress - last_progress >= delay:
+                count = method(out, prefix, cur_ix, length, width,
                                cur_progress - start_time, points, count)
                 last_progress = cur_progress
             job(ix, length)
             cur_progress = get_time_ms()
-        count = method(out, prefix, length, length, width,
-                       cur_progress - start_time, None, count)
+        cur_ix = length
     finally:
+        count = method(out, prefix, cur_ix, length, width,
+                       cur_progress - start_time, None, count)
         out._finish()
 
 
 def progress_list(iterator, job, out=sys.stderr, prefix=None,
                   method=method_blocks, width=20, delay=100):
     out = SafePrinter(out)
+    isatty = out.isatty()
     start_time = get_time_ms()
     last_progress = start_time
     points = []
     count = 0
-    prefix = str(prefix) + ": " if prefix is not None else ""
+    prefix = _get_prefix(prefix, isatty)
     length = len(iterator)
     if length == 0:
         return
+    cur_ix = 0
     try:
-        count = method(out, prefix, 0, length, width, 0, points, count)
+        if isatty:
+            count = method(out, prefix, cur_ix, length, width, 0, points, count)
         cur_progress = get_time_ms()
         for (ix, elem) in enumerate(iterator):
-            if cur_progress - last_progress >= delay:
-                count = method(out, prefix, ix, length, width,
+            cur_ix = ix
+            if isatty and cur_progress - last_progress >= delay:
+                count = method(out, prefix, cur_ix, length, width,
                                cur_progress - start_time, points, count)
                 last_progress = cur_progress
             job(elem)
             cur_progress = get_time_ms()
-        count = method(out, prefix, length, length, width,
-                       cur_progress - start_time, None, count)
+        cur_ix = length
     finally:
+        count = method(out, prefix, cur_ix, length, width,
+                       cur_progress - start_time, None, count)
         out._finish()
 
 
 def progress_map(iterator, job, out=sys.stderr, prefix=None,
                  method=method_blocks, width=20, delay=100):
     out = SafePrinter(out)
+    isatty = out.isatty()
     start_time = get_time_ms()
     last_progress = start_time
     points = []
     count = 0
-    prefix = str(prefix) + ": " if prefix is not None else ""
+    prefix = _get_prefix(prefix, isatty)
     length = len(iterator)
     res = []
     if length == 0:
         return res
+    cur_ix = 0
     try:
-        count = method(out, prefix, 0, length, width, 0, points, count)
+        if isatty:
+            count = method(out, prefix, cur_ix, length, width, 0, points, count)
         cur_progress = get_time_ms()
         for (ix, elem) in enumerate(iterator):
-            if cur_progress - last_progress >= delay:
-                count = method(out, prefix, ix, length, width,
+            cur_ix = ix
+            if isatty and cur_progress - last_progress >= delay:
+                count = method(out, prefix, cur_ix, length, width,
                                cur_progress - start_time, points, count)
                 last_progress = cur_progress
             res.append(job(elem))
             cur_progress = get_time_ms()
-        count = method(out, prefix, length, length, width,
-                       cur_progress - start_time, None, count)
+        cur_ix = length
     finally:
+        count = method(out, prefix, cur_ix, length, width,
+                       cur_progress - start_time, None, count)
         out._finish()
     return res
 
@@ -409,22 +434,25 @@ def progress_map(iterator, job, out=sys.stderr, prefix=None,
 def progress_indef(iterator, job, out=sys.stderr, prefix=None,
                    method=method_indef, delay=100):
     out = SafePrinter(out)
+    isatty = out.isatty()
     start_time = get_time_ms()
     last_progress = start_time
     cur_progress = last_progress
-    prefix = str(prefix) + ": " if prefix is not None else ""
+    prefix = _get_prefix(prefix, isatty)
     rot = 0
     try:
-        method(out, prefix, rot, cur_progress - start_time)
+        if isatty:
+            method(out, prefix, rot, cur_progress - start_time)
         for elem in iterator:
             cur_progress = get_time_ms()
-            if cur_progress - last_progress >= delay:
+            if isatty and cur_progress - last_progress >= delay:
                 rot += 1
                 method(out, prefix, rot, cur_progress - start_time)
                 last_progress = cur_progress
             job(elem)
+        rot = -1
     finally:
-        method(out, prefix, -1, cur_progress - start_time)
+        method(out, prefix, rot, cur_progress - start_time)
         out._finish()
 
 
