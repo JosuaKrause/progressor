@@ -8,7 +8,7 @@ import time
 import math
 import random
 
-__version__ = "0.1.15"
+__version__ = "0.1.16"
 
 
 TIMES = [
@@ -17,6 +17,18 @@ TIMES = [
     (1000*60*60, "h"),
     (1000*60*60*24, "d"),
 ]
+
+
+REST_SIZE = 43
+
+
+def get_optimal_size(prefix):
+    import shutil
+    try:
+        tsize = shutil.get_terminal_size(fallback=(80, 25))
+        return max(tsize[0] - REST_SIZE - len(prefix), 0)
+    except AttributeError:
+        return max(80 - REST_SIZE - len(prefix), 0)
 
 
 def convert_time_ms(value):
@@ -246,14 +258,15 @@ class SafePrinter(object):
 
 class IOWrapper(io.RawIOBase):
     def __init__(self, f, out=sys.stderr, prefix=None,
-                 method=method_blocks, width=20,
+                 method=method_blocks, width=None,
                  delay=100, fallback=method_indef):
         self._f = f
         self._out = SafePrinter(out)
         self._isatty = out.isatty()
         self._prefix = _get_prefix(prefix, self._isatty)
         self._method = method
-        self._width = width
+        self._width = \
+            width if width is not None else get_optimal_size(self._prefix)
         self._delay = delay
         self._start_time = get_time_ms()
         self._last_progress = self._start_time
@@ -365,13 +378,13 @@ class IOWrapper(io.RawIOBase):
 
 
 def progress_wrap(f, out=sys.stderr, prefix=None,
-                  method=method_blocks, width=20, delay=100,
+                  method=method_blocks, width=None, delay=100,
                   fallback=method_indef):
     return IOWrapper(f, out, prefix, method, width, delay, fallback)
 
 
 def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
-             method=method_blocks, width=20, delay=100):
+             method=method_blocks, width=None, delay=100):
     out = SafePrinter(out)
     isatty = out.isatty()
     start_time = get_time_ms()
@@ -379,6 +392,8 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
     points = []
     count = 0
     prefix = _get_prefix(prefix, isatty)
+    if width is None:
+        width = get_optimal_size(prefix)
     length = to_ix - from_ix
     if length == 0:
         return
@@ -404,7 +419,7 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
 
 
 def progress_list(iterator, job, out=sys.stderr, prefix=None,
-                  method=method_blocks, width=20, delay=100):
+                  method=method_blocks, width=None, delay=100):
     out = SafePrinter(out)
     isatty = out.isatty()
     start_time = get_time_ms()
@@ -412,6 +427,8 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None,
     points = []
     count = 0
     prefix = _get_prefix(prefix, isatty)
+    if width is None:
+        width = get_optimal_size(prefix)
     length = len(iterator)
     if length == 0:
         return
@@ -437,7 +454,7 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None,
 
 
 def progress_map(iterator, job, out=sys.stderr, prefix=None,
-                 method=method_blocks, width=20, delay=100):
+                 method=method_blocks, width=None, delay=100):
     out = SafePrinter(out)
     isatty = out.isatty()
     start_time = get_time_ms()
@@ -445,6 +462,8 @@ def progress_map(iterator, job, out=sys.stderr, prefix=None,
     points = []
     count = 0
     prefix = _get_prefix(prefix, isatty)
+    if width is None:
+        width = get_optimal_size(prefix)
     length = len(iterator)
     res = []
     if length == 0:
