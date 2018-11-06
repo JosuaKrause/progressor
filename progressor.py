@@ -8,22 +8,24 @@ import time
 import math
 import random
 
-__version__ = "0.1.14"
+__version__ = "0.1.15"
 
 
-times = [
+TIMES = [
     (1000, "s"),
     (1000*60, "m"),
     (1000*60*60, "h"),
     (1000*60*60*24, "d"),
 ]
+
+
 def convert_time_ms(value):
     if value is None:
         return "  ??????"
     cur = ""
     prev_u = ""
     prev_c = 1
-    for (conv, unit) in times:
+    for (conv, unit) in TIMES:
         cur_v = value / conv
         if cur_v >= 1 or not len(cur):
             if prev_u:
@@ -40,17 +42,29 @@ def convert_time_ms(value):
     return cur
 
 
+def _time_mono():
+    return time.monotonic() * 1000.0
+
+
+def _time_clock():
+    return time.clock() * 1000.0
+
+
 if hasattr(time, "monotonic"):
-    _get_time_ms = lambda: time.monotonic() * 1000.0
+    _get_time_ms = _time_mono
 else:
-    _get_time_ms = lambda: time.clock() * 1000.0
+    _get_time_ms = _time_clock
+
+
 def get_time_ms():
     return _get_time_ms()
 
 
-max_time_list = 1000
+MAX_TIME_LIST = 1000
+
+
 def add_time_point(time_points, count, p):
-    if len(time_points) < max_time_list:
+    if len(time_points) < MAX_TIME_LIST:
         time_points.append(p)
     else:
         pos = random.randrange(count)
@@ -75,6 +89,7 @@ def compute_eta(time_points, before):
         prev_y = y
     return max(float(total) / float(number) - before, 0)
 
+
 BLOCKS = [
     " ",
     "▏",
@@ -84,8 +99,12 @@ BLOCKS = [
     "▋",
     "▊",
     "▉",
-    "█", # "\x1b[7m \x1b[0m" would fake a full block for bad terminals but then it's too large :(
+    "█",
+    # "\x1b[7m \x1b[0m"
+    # would fake a full block for bad terminals but then it's too large :(
 ]
+
+
 def compute_bar(br, width):
     if br < 1.0:
         r = br * width
@@ -95,6 +114,7 @@ def compute_bar(br, width):
             BLOCKS[int(math.floor((r - ri) * len(BLOCKS)))],
             BLOCKS[0] * (width - ri - 1))
     return "{0}".format(BLOCKS[-1] * width)
+
 
 def method_blocks(out, prefix, ix, length, width,
                   elapsed_ms, time_points, count):
@@ -112,7 +132,8 @@ def method_blocks(out, prefix, ix, length, width,
             convert_time_ms(elapsed_ms), convert_time_ms(eta)))
     else:
         out.write("{0}{1:6.2f}% (T {2} ETA {3})".format(
-            prefix, br * 100.0, convert_time_ms(elapsed_ms), convert_time_ms(eta)))
+            prefix, br * 100.0, convert_time_ms(elapsed_ms),
+            convert_time_ms(eta)))
     return count + 1
 
 
@@ -122,6 +143,8 @@ INDEF = [
     "|",
     "/",
 ]
+
+
 def method_indef(out, prefix, rot, elapsed_ms):
     if rot < 0:
         out.write("{0}took {1}".format(prefix, convert_time_ms(elapsed_ms)))
@@ -182,18 +205,27 @@ class SafePrinter(object):
             self.write(l)
 
     def write(self, text):
+
+        def write(text):
+            res = self._w.write(text)
+            if res is None:
+                return len(text)
+            return res
+
         if self._finished:
-            return self._w.write(text)
+            return write(text)
         count = 0
         firstLF = True
         for l in text.split("\n"):
             if self._reset:
-                count += self._w.write("\r{0}\r".format(" " * max(self._cur_width, self._last_width)))
+                count += write(
+                    "\r{0}\r".format(
+                        " " * max(self._cur_width, self._last_width)))
                 self._cur_width = 0
                 self._last_width = 0
                 self._reset = False
             if not firstLF:
-                count += self._w.write("\n")
+                count += write("\n")
                 self._cur_width = 0
                 self._last_width = 0
                 self._reset = False
@@ -201,12 +233,12 @@ class SafePrinter(object):
             firstCR = True
             for chunk in l.split("\r"):
                 if not firstCR:
-                    count += self._w.write("\r")
+                    count += write("\r")
                     self._last_width = max(self._last_width, self._cur_width)
                     self._cur_width = 0
                     self._reset = True
                 firstCR = False
-                count += self._w.write(chunk)
+                count += write(chunk)
                 self._cur_width += len(chunk)
         self._w.flush()
         return count
@@ -214,7 +246,8 @@ class SafePrinter(object):
 
 class IOWrapper(io.RawIOBase):
     def __init__(self, f, out=sys.stderr, prefix=None,
-            method=method_blocks, width=20, delay=100, fallback=method_indef):
+                 method=method_blocks, width=20,
+                 delay=100, fallback=method_indef):
         self._f = f
         self._out = SafePrinter(out)
         self._isatty = out.isatty()
@@ -248,13 +281,16 @@ class IOWrapper(io.RawIOBase):
                     do_print = True
                 self._points = None
                 cur = self._length
-            self._count = self._method(self._out,
-                self._prefix, cur, self._length, self._width,
-                cur_time - self._start_time, self._points, self._count)
+            if do_print:
+                self._count = self._method(
+                    self._out, self._prefix, cur, self._length, self._width,
+                    cur_time - self._start_time, self._points, self._count)
         else:
             if self._rot < 0:
                 do_print = True
-            self._method(self._out, self._prefix, cur, cur_time - self._start_time)
+            if do_print:
+                self._method(
+                    self._out, self._prefix, cur, cur_time - self._start_time)
 
     def _progress(self):
         cur_progress = get_time_ms()
@@ -329,7 +365,8 @@ class IOWrapper(io.RawIOBase):
 
 
 def progress_wrap(f, out=sys.stderr, prefix=None,
-            method=method_blocks, width=20, delay=100, fallback=method_indef):
+                  method=method_blocks, width=20, delay=100,
+                  fallback=method_indef):
     return IOWrapper(f, out, prefix, method, width, delay, fallback)
 
 
@@ -348,7 +385,8 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
     cur_ix = 0
     try:
         if isatty:
-            count = method(out, prefix, cur_ix, length, width, 0, points, count)
+            count = method(
+                out, prefix, cur_ix, length, width, 0, points, count)
         cur_progress = get_time_ms()
         for ix in range(from_ix, to_ix):
             cur_ix = ix
@@ -380,7 +418,8 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None,
     cur_ix = 0
     try:
         if isatty:
-            count = method(out, prefix, cur_ix, length, width, 0, points, count)
+            count = method(
+                out, prefix, cur_ix, length, width, 0, points, count)
         cur_progress = get_time_ms()
         for (ix, elem) in enumerate(iterator):
             cur_ix = ix
@@ -413,7 +452,8 @@ def progress_map(iterator, job, out=sys.stderr, prefix=None,
     cur_ix = 0
     try:
         if isatty:
-            count = method(out, prefix, cur_ix, length, width, 0, points, count)
+            count = method(
+                out, prefix, cur_ix, length, width, 0, points, count)
         cur_progress = get_time_ms()
         for (ix, elem) in enumerate(iterator):
             cur_ix = ix
@@ -471,5 +511,6 @@ def histogram(items, width=50, out=sys.stderr):
     for (prefix, v) in items:
         prefix = "{0}".format(prefix)
         padding = " " * (max_len - len(prefix))
-        out.write("{0}{1} |{2}| {3}\n".format(padding, prefix,
+        out.write("{0}{1} |{2}| {3}\n".format(
+            padding, prefix,
             compute_bar(float(v) / float(max_value), width), v))

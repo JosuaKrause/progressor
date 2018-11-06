@@ -17,12 +17,12 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 # NOTE! steps to distribute:
-#$ python setup.py sdist bdist_wheel
-#$ twine upload dist/... <- here be the new version!
+# $ python setup.py sdist bdist_wheel
+# $ twine upload dist/... <- here be the new version!
 
 setup(
     name='progressor',
-    version='0.1.14',
+    version='0.1.15',
     description='A visually appealing progress bar for long lasting '
                 'computations.',
     long_description=long_description,
