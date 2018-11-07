@@ -8,7 +8,7 @@ import time
 import math
 import random
 
-__version__ = "0.1.17"
+__version__ = "0.1.18"
 
 
 TIMES = [
@@ -415,7 +415,8 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
     finally:
         count = method(out, prefix, cur_ix, length, width,
                        cur_progress - start_time, None, count)
-        out._finish()
+        if hasattr(out, "_finish"):
+            out._finish()
 
 
 def progress_list(iterator, job, out=sys.stderr, prefix=None,
@@ -450,7 +451,8 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None,
     finally:
         count = method(out, prefix, cur_ix, length, width,
                        cur_progress - start_time, None, count)
-        out._finish()
+        if hasattr(out, "_finish"):
+            out._finish()
 
 
 def progress_map(iterator, job, out=sys.stderr, prefix=None,
@@ -486,7 +488,8 @@ def progress_map(iterator, job, out=sys.stderr, prefix=None,
     finally:
         count = method(out, prefix, cur_ix, length, width,
                        cur_progress - start_time, None, count)
-        out._finish()
+        if hasattr(out, "_finish"):
+            out._finish()
     return res
 
 
@@ -512,7 +515,8 @@ def progress_indef(iterator, job, out=sys.stderr, prefix=None,
         rot = -1
     finally:
         method(out, prefix, rot, cur_progress - start_time)
-        out._finish()
+        if hasattr(out, "_finish"):
+            out._finish()
 
 
 def histogram(items, width=50, out=sys.stderr):
