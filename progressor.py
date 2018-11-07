@@ -8,7 +8,7 @@ import time
 import math
 import random
 
-__version__ = "0.1.16"
+__version__ = "0.1.17"
 
 
 TIMES = [
@@ -259,9 +259,9 @@ class SafePrinter(object):
 class IOWrapper(io.RawIOBase):
     def __init__(self, f, out=sys.stderr, prefix=None,
                  method=method_blocks, width=None,
-                 delay=100, fallback=method_indef):
+                 delay=100, fallback=method_indef, raw_out=False):
         self._f = f
-        self._out = SafePrinter(out)
+        self._out = SafePrinter(out) if not raw_out else out
         self._isatty = out.isatty()
         self._prefix = _get_prefix(prefix, self._isatty)
         self._method = method
@@ -379,13 +379,13 @@ class IOWrapper(io.RawIOBase):
 
 def progress_wrap(f, out=sys.stderr, prefix=None,
                   method=method_blocks, width=None, delay=100,
-                  fallback=method_indef):
-    return IOWrapper(f, out, prefix, method, width, delay, fallback)
+                  fallback=method_indef, raw_out=False):
+    return IOWrapper(f, out, prefix, method, width, delay, fallback, raw_out)
 
 
 def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
-             method=method_blocks, width=None, delay=100):
-    out = SafePrinter(out)
+             method=method_blocks, width=None, delay=100, raw_out=False):
+    out = SafePrinter(out) if not raw_out else out
     isatty = out.isatty()
     start_time = get_time_ms()
     last_progress = start_time
@@ -419,8 +419,8 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
 
 
 def progress_list(iterator, job, out=sys.stderr, prefix=None,
-                  method=method_blocks, width=None, delay=100):
-    out = SafePrinter(out)
+                  method=method_blocks, width=None, delay=100, raw_out=False):
+    out = SafePrinter(out) if not raw_out else out
     isatty = out.isatty()
     start_time = get_time_ms()
     last_progress = start_time
@@ -454,8 +454,8 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None,
 
 
 def progress_map(iterator, job, out=sys.stderr, prefix=None,
-                 method=method_blocks, width=None, delay=100):
-    out = SafePrinter(out)
+                 method=method_blocks, width=None, delay=100, raw_out=False):
+    out = SafePrinter(out) if not raw_out else out
     isatty = out.isatty()
     start_time = get_time_ms()
     last_progress = start_time
@@ -491,8 +491,8 @@ def progress_map(iterator, job, out=sys.stderr, prefix=None,
 
 
 def progress_indef(iterator, job, out=sys.stderr, prefix=None,
-                   method=method_indef, delay=100):
-    out = SafePrinter(out)
+                   method=method_indef, delay=100, raw_out=False):
+    out = SafePrinter(out) if not raw_out else out
     isatty = out.isatty()
     start_time = get_time_ms()
     last_progress = start_time
