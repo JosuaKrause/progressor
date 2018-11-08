@@ -8,7 +8,7 @@ import time
 import math
 import random
 
-__version__ = "0.1.18"
+__version__ = "0.1.19"
 
 
 TIMES = [
@@ -129,7 +129,9 @@ def compute_bar(br, width):
 
 
 def method_blocks(out, prefix, ix, length, width,
-                  elapsed_ms, time_points, count):
+                  elapsed_ms, time_points, count, finish=False):
+    if finish and not hasattr(out, "_finish"):
+        prefix = prefix.replace("\r", "")
     br = float(ix) / float(length)
     if time_points is not None:
         add_time_point(time_points, count, (br, elapsed_ms))
@@ -146,6 +148,11 @@ def method_blocks(out, prefix, ix, length, width,
         out.write("{0}{1:6.2f}% (T {2} ETA {3})".format(
             prefix, br * 100.0, convert_time_ms(elapsed_ms),
             convert_time_ms(eta)))
+    if finish:
+        if hasattr(out, "_finish"):
+            out._finish()
+        else:
+            out.write("\n")
     return count + 1
 
 
@@ -157,11 +164,18 @@ INDEF = [
 ]
 
 
-def method_indef(out, prefix, rot, elapsed_ms):
+def method_indef(out, prefix, rot, elapsed_ms, finish=False):
+    if finish and not hasattr(out, "_finish"):
+        prefix = prefix.replace("\r", "")
     if rot < 0:
         out.write("{0}took {1}".format(prefix, convert_time_ms(elapsed_ms)))
     else:
         out.write("{0}{1}".format(prefix, INDEF[rot % len(INDEF)]))
+    if finish:
+        if hasattr(out, "_finish"):
+            out._finish()
+        else:
+            out.write("\n")
 
 
 def _get_prefix(prefix, isatty):
@@ -414,9 +428,7 @@ def progress(from_ix, to_ix, job, out=sys.stderr, prefix=None,
         cur_ix = length
     finally:
         count = method(out, prefix, cur_ix, length, width,
-                       cur_progress - start_time, None, count)
-        if hasattr(out, "_finish"):
-            out._finish()
+                       cur_progress - start_time, None, count, finish=True)
 
 
 def progress_list(iterator, job, out=sys.stderr, prefix=None,
@@ -450,9 +462,7 @@ def progress_list(iterator, job, out=sys.stderr, prefix=None,
         cur_ix = length
     finally:
         count = method(out, prefix, cur_ix, length, width,
-                       cur_progress - start_time, None, count)
-        if hasattr(out, "_finish"):
-            out._finish()
+                       cur_progress - start_time, None, count, finish=True)
 
 
 def progress_map(iterator, job, out=sys.stderr, prefix=None,
@@ -487,9 +497,7 @@ def progress_map(iterator, job, out=sys.stderr, prefix=None,
         cur_ix = length
     finally:
         count = method(out, prefix, cur_ix, length, width,
-                       cur_progress - start_time, None, count)
-        if hasattr(out, "_finish"):
-            out._finish()
+                       cur_progress - start_time, None, count, finish=True)
     return res
 
 
@@ -514,9 +522,7 @@ def progress_indef(iterator, job, out=sys.stderr, prefix=None,
             job(elem)
         rot = -1
     finally:
-        method(out, prefix, rot, cur_progress - start_time)
-        if hasattr(out, "_finish"):
-            out._finish()
+        method(out, prefix, rot, cur_progress - start_time, finish=True)
 
 
 def histogram(items, width=50, out=sys.stderr):
